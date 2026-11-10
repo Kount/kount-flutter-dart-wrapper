@@ -1,0 +1,35 @@
+# macOS and IDE files
+.DS_Store
+.idea/
+*.iml
+
+# Dart and Flutter generated files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Android and Gradle generated/local files
+.gradle/
+.kotlin/
+**/local.properties
+**/key.properties
+**/*.jks
+**/*.keystore
+
+# Xcode and generated Flutter iOS files
+DerivedData/
+**/xcuserdata/
+**/*.xcuserstate
+**/Pods/
+**/Flutter/Generated.xcconfig
+**/Flutter/flutter_export_environment.sh
+**/Flutter/ephemeral/
+**/Runner/GeneratedPluginRegistrant.*
+
+# Generated from the active Flutter SDK; do not commit a local engine copy
+/ios/FlutterFramework/Frameworks/Flutter.xcframework/
