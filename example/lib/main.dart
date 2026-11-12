@@ -286,7 +286,7 @@ class _KountHelperDemoState extends State<KountHelperDemo> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              items: ['TEST', 'QA', 'PROD']
+              items: ['TEST', 'PROD']
                   .map((env) => DropdownMenuItem(
                         value: env,
                         child: Text(env),
@@ -383,7 +383,7 @@ class _KountHelperDemoState extends State<KountHelperDemo> {
                      const Text(
                        '1. Enter your Merchant ID\n'
                        '2. Enter your session ID or leave blank to generate a new one\n'
-                       '3. Select the Environment (TEST/QA/PROD)\n'
+                       '3. Select the Environment (TEST/PROD)\n'
                        '4. Click "Collect" to start\n'
                        '\n'
                        'The helper will configure the SDK and collect device data in one call.',
