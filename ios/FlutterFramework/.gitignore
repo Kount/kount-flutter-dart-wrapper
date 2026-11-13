@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+.DS_Store
+
+# The Flutter engine binary is large (100MB+) and is tied to whatever Flutter
+# SDK version is installed on each machine. It's regenerated on demand via
+# ./update_flutter_framework.sh, so it's not tracked in git.
+Frameworks/Flutter.xcframework/
+

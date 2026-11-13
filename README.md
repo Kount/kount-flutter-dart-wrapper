@@ -1,110 +1,160 @@
-# kount-flutter-dart-wrapper
+# Kount Flutter SDK Wrapper
 
-Kount's Flutter plugin makes it easy to bring Kount's fraud fighting solution into your Flutter app. It wraps the native Kount SDK for Android and iOS behind a single Dart API.
+`kount_sdk_wrapper` is a Flutter plugin for collecting device data with Kount's native Android and iOS SDKs. The package provides one Dart API over the native implementations; it does not make fraud decisions or replace the backend Kount Risk Inquiry Service (RIS) integration.
+
+| Component | Release |
+|---|---|
+| Flutter wrapper | 1.0.0 |
+| Kount Android SDK | 5.0.3 |
+| Kount iOS SDK | 6.0.0 |
+
+## Release readiness
+
+The versions above describe the intended 1.0.0 release. Before publishing or consuming a public release, verify these distribution prerequisites:
+
+- The Android SDK is bundled at `android/libs/kount-data-collector-5.0.3.jar`; confirm its version and distribution terms against the approved Kount release.
+- The repository's `LICENSE` file is intentionally empty, so this repository does not grant an open-source license. Confirm the applicable usage and distribution terms for both the wrapper and Kount SDK binaries before use.
+- The iOS Swift package references a local Flutter engine package. Its helper copies the debug engine from the active Flutter SDK, so this setup does not establish a working release integration. Validate a clean-checkout build and debug, profile, and release configurations before publishing.
+- The Android bridge enables native SDK debugging during collection. Review this behavior before production use; the Dart logger does not control native SDK logging.
 
 ## Requirements
 
-- [Kount integration](http://www.kount.com/fraud-detection-software) (a Kount merchant ID)
-- Flutter 3.24.0+ and Dart 3.5.1+
-- Android: minSdk 21+, compileSdk 36, Java 11
-- iOS: iOS 15.6+ deployment target, Xcode with Swift Package Manager support
+- Flutter with Dart compatible with the package constraint `^3.5.1`.
+- Android: application `minSdk` 21 or later, Android SDK API 36, and a compatible Android Gradle Plugin, Gradle, Kotlin, and JDK toolchain. The plugin targets Java 11 bytecode; AGP 8.x requires JDK 17 or later.
+- iOS: macOS, Xcode, Swift Package Manager, and an application deployment target of iOS 15.6 or later.
+- A Kount merchant ID and the corresponding backend RIS integration.
 
-## Installation
+Only Android and iOS are supported; web and desktop implementations are not included.
 
-Add the package to your `pubspec.yaml`:
+## Install
+
+The package is distributed from this Git repository. Pin a reviewed release tag or commit in the consuming application's `pubspec.yaml`:
 
 ```yaml
 dependencies:
   kount_sdk_wrapper:
-    <git or private registry source>
+    git:
+      url: https://github.com/Kount/kount-flutter-dart-wrapper.git
+      ref: <release-tag-or-commit>
 ```
 
-Then run:
+Replace the placeholder with the approved ref, then run `flutter pub get`. Do not put credentials or access tokens in the dependency URL or source files.
 
-```sh
-flutter pub get
+For local development, use a path dependency instead:
+
+```yaml
+dependencies:
+  kount_sdk_wrapper:
+    path: ../kount-flutter-dart-wrapper
 ```
+
+## Platform setup
+
+### Android
+
+The consuming app should declare the permissions required by the Kount collector in `android/app/src/main/AndroidManifest.xml`, directly under `<manifest>`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+The plugin requests foreground location permission before collection. Make the request from a foreground app with an attached Android activity, and handle denial. The example app declares additional permissions; do not copy background-location or all-files permissions unless your application independently needs them.
 
 ### iOS
 
-The plugin is distributed through Swift Package Manager only (no CocoaPods). Enable SPM support in your Flutter project if it is not already enabled:
+The plugin uses Swift Package Manager (SPM), not CocoaPods. Enable Flutter's SPM support if needed:
 
 ```sh
 flutter config --enable-swift-package-manager
 ```
 
-Add the location usage description to your app's `ios/Runner/Info.plist`:
+Set the application's iOS deployment target to 15.6 or later, including relevant test targets. Add a purpose-specific location description to the consuming app's `ios/Runner/Info.plist`:
 
 ```xml
 <key>NSLocationWhenInUseUsageDescription</key>
-<string>Your reason for requesting location access.</string>
+<string>Explain why your application needs foreground location access.</string>
 ```
 
-### Android
+The current package also refers to `ios/FlutterFramework`, whose `Flutter.xcframework` is generated locally from the active Flutter SDK. From the repository root, the helper can prepare that local debug dependency:
 
-No additional setup is required. The Kount SDK is bundled with the plugin.
+```sh
+flutter precache --ios
+./ios/FlutterFramework/update_flutter_framework.sh
+```
 
-## Usage
+The generated Flutter framework is intentionally not committed because it is tied to the local Flutter SDK. This helper is not a release-engine integration; validate SPM resolution and release linkage in the consuming app before distribution.
+
+## Collect device data
+
+Call the plugin after Flutter is initialized. Request location permission from the app and handle a denied permission before collecting:
 
 ```dart
 import 'package:kount_sdk_wrapper/kount_sdk_wrapper.dart';
 
-final manager = KountSessionManager();
+Future<KountResult> collectDeviceData(String merchantId) async {
+  final service = KountService();
+  final manager = KountSessionManager(service: service);
+  final config = KountConfig(
+    merchantId: merchantId,
+    environment: 'TEST', // Use PROD for the production integration.
+  );
 
-final config = KountConfig(
-  merchantId: '<YOUR_MERCHANT_ID>',
-  environment: 'TEST', // 'TEST' or 'PROD'
-);
+  if (!config.isValid) {
+    throw ArgumentError('Provide a merchant ID and supported environment.');
+  }
 
-final result = await manager.configureAndCollect(config);
+  final permissionGranted = await service.requestLocationPermission();
+  if (!permissionGranted) {
+    return KountResult(
+      success: false,
+      error: 'Location permission was not granted.',
+    );
+  }
 
-if (result.success) {
-  print('Session ID: ${result.sessionId}');
-} else {
-  print('Collection failed: ${result.error}');
+  return manager.configureAndCollect(config);
 }
 ```
 
-Send the returned `sessionId` to your backend and include it in your Kount Risk Inquiry Service (RIS) request.
+Handle configuration exceptions and inspect the returned `KountResult`. On success, send `result.sessionId` to your backend and use the same value in the RIS request's `SESS` field. Collection success is not a fraud decision; the backend RIS integration is still required.
 
-### Step-by-step
+`KountSessionManager.configureAndCollect()` creates a new 32-character UUID v4 session ID for each call. The native collection call has a 30-second Dart timeout; a timeout does not cancel native work, so avoid immediate overlapping retries.
 
-```dart
-final service = KountService();
-final manager = KountSessionManager(service: service);
+## Environments and API
 
-await service.configure(config);
-final sessionId = manager.generateSessionId();
-final result = await service.collect(sessionId);
+Supported environment names are `TEST`, `QA`, and `PROD`. `QA` uses an internal Kount environment and is for authorized testing only. Use `PROD` for production traffic.
+
+- `KountConfig` holds the merchant ID and environment; `isValid` checks that the ID is nonempty and the environment is supported, not that the merchant account is valid.
+- `KountService.configure()` configures the native SDK. `KountService.collect()` collects for a session ID and returns a `KountResult`.
+- `KountSessionManager.configureAndCollect()` combines configuration and collection. Validate configuration and handle errors from both the method and the returned result.
+- `KountService.requestLocationPermission()` requests foreground location permission.
+- Behavioral analytics are not supported by this Flutter wrapper. `collectAnalytics` is retained for API compatibility and has no effect.
+
+See [`lib/kount_sdk_wrapper.dart`](lib/kount_sdk_wrapper.dart) for the public API and [`example/lib/main.dart`](example/lib/main.dart) for the sample app.
+
+## Development
+
+Run package tests and analysis from the repository root:
+
+```sh
+flutter pub get
+flutter test
+flutter analyze
 ```
 
-### Location permission
+Run the example on a supported device from its directory:
 
-```dart
-final granted = await service.requestLocationPermission();
+```sh
+cd example
+flutter pub get
+flutter run
 ```
 
-## API overview
-
-| Class | Purpose |
-|---|---|
-| `KountConfig` | Merchant ID, environment and analytics flag. `isValid` checks the values. |
-| `KountSessionManager` | Generates UUID v4 session IDs and runs configure + collect in one call. |
-| `KountService` | Lower-level access to configure, collect and request location permission. |
-| `KountResult` | `success`, `sessionId`, `error` and `timestamp` for each collection. |
-| `KountLogger` | Optional logging for debugging. |
-
-Collection times out after 30 seconds and returns a failed `KountResult`.
-
-## Platform notes
-
-- `collectAnalytics` is honored on Android. It has no effect on iOS, because behavioral analytics depends on the native UIKit view hierarchy, which Flutter does not expose.
-- Supported environments are `TEST` and `PROD`.
-
-## Documentation
-
-Head over to the developer.kount.com site for step-by-step setup instructions: <Integration Guide URL>
+The example is for development and demonstration, not a production app template. Configure your own application identifiers, signing, permissions, privacy disclosures, and merchant settings before distributing an app.
 
 ## Support
 
-This SDK is actively maintained, but not through GitHub issues or pull requests on this repository — we don't monitor those here. If you run into a problem or have a question, our customer support team is the right place to go: post in [Kount Community (Topics – Kount)](https://support.kount.com/hc/en-us/community/topics) or email [support@kount.com](mailto:support@kount.com), and we'll take it from there.
+For Kount account and integration questions, visit [Kount Community](https://support.kount.com/hc/en-us/community/topics) or email [support@kount.com](mailto:support@kount.com). GitHub issues and pull requests in this repository are not monitored for customer support. See [CHANGELOG.md](CHANGELOG.md) for release history.
