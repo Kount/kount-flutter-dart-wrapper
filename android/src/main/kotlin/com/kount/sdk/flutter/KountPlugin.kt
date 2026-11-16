@@ -117,7 +117,7 @@ class KountPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 call.argument<String>("environment")?.let {
                     KountSDK.setEnvironment(resolveEnvironment(it))
                 }
-                KountSDK.setDebuggable(true)
+                KountSDK.setDebuggable(false)
                 collectData(result)
             }
             METHOD_CONFIGURE_AND_COLLECT -> {
@@ -128,7 +128,7 @@ class KountPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 // Note: collectAnalytics parameter is accepted but ignored (no-op)
                 // See METHOD_SET_COLLECT_ANALYTICS comment above for details
                 val _collectAnalytics = call.argument<Boolean>("collectAnalytics") // Intentionally unused
-                KountSDK.setDebuggable(true)
+                KountSDK.setDebuggable(false)
                 collectData(result)
             }
             METHOD_GET_SESSION_ID -> {

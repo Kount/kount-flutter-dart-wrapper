@@ -18,6 +18,12 @@ rootProject.allprojects {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://jitpack.io")
+            content {
+                includeGroup("com.github.Kount")
+            }
+        }
     }
 }
 
@@ -48,8 +54,8 @@ android {
 }
 
 dependencies {
-    // Kount Data Collector JAR bundled with the plugin
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // Kount Data Collector
+    implementation "com.github.Kount:kount-android-sdk:v5.0.4"
     implementation 'androidx.core:core-ktx:1.13.1'
 }
 
